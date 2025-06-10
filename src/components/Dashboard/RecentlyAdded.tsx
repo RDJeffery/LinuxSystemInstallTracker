@@ -54,9 +54,6 @@ const RecentlyAdded: React.FC = () => {
                     {entry.description}
                   </p>
                 </div>
-                <div className="ml-4 text-sm" style={{ color: theme.fg.muted }}>
-                  {new Date(entry.addedAt).toLocaleDateString()}
-                </div>
               </div>
             ))}
           </div>

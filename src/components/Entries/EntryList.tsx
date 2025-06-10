@@ -22,12 +22,11 @@ const EntryList: React.FC<EntryListProps> = ({
   category,
   showCategory = false,
 }) => {
-  const { entries, updateEntry, removeEntry, darkMode } = useApp();
+  const { entries, darkMode } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'installed' | 'not-installed'>('all');
   const [sortField, setSortField] = useState<'name' | 'category'>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
-  const [editingEntry, setEditingEntry] = useState<Entry | null>(null);
   
   const filteredEntries = useMemo(() => {
     let result = entries;
@@ -76,29 +75,6 @@ const EntryList: React.FC<EntryListProps> = ({
       setSortField(field);
       setSortDirection('asc');
     }
-  };
-
-  const toggleInstalled = (id: string, isInstalled: boolean) => {
-    updateEntry(id, { isInstalled });
-  };
-
-  const handleEdit = (entry: Entry) => {
-    setEditingEntry(entry);
-  };
-
-  const handleDelete = (id: string) => {
-    if (confirm('Are you sure you want to delete this entry?')) {
-      removeEntry(id);
-    }
-  };
-
-  const handleEditCancel = () => {
-    setEditingEntry(null);
-  };
-
-  const handleEditSave = (editedEntry: Entry) => {
-    updateEntry(editedEntry.id, editedEntry);
-    setEditingEntry(null);
   };
 
   // Get category name from kebab case
@@ -201,137 +177,48 @@ const EntryList: React.FC<EntryListProps> = ({
                   </button>
                 </th>
               )}
-              <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">
-                Status
-              </th>
-              <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider">
-                Actions
-              </th>
             </tr>
           </thead>
           <tbody className={`
-            ${darkMode ? 'divide-y divide-slate-700' : 'divide-y divide-slate-200'}
+            divide-y ${darkMode ? 'divide-slate-700' : 'divide-slate-200'}
           `}>
-            {filteredEntries.length > 0 ? (
-              filteredEntries.map((entry) => (
-                <tr 
-                  key={entry.id}
-                  className={`
-                    ${darkMode ? 'hover:bg-slate-750' : 'hover:bg-slate-50'}
-                  `}
-                >
-                  <td className="px-6 py-4 whitespace-nowrap font-medium">
-                    {entry.name}
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className={`
-                      max-w-md
-                      ${darkMode ? 'text-slate-300' : 'text-slate-600'}
+            {filteredEntries.map((entry) => (
+              <tr key={entry.id} className={`
+                ${darkMode ? 'bg-slate-800' : 'bg-white'}
+              `}>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <div className="flex items-center">
+                    <span className={`
+                      text-sm font-medium
+                      ${darkMode ? 'text-slate-200' : 'text-slate-900'}
                     `}>
-                      {entry.description}
-                    </div>
-                  </td>
-                  {showCategory && (
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`
-                        inline-flex text-xs px-2 py-1 rounded-full
-                        ${darkMode ? 'bg-slate-700 text-slate-300' : 'bg-slate-200 text-slate-700'}
-                      `}>
-                        {formatCategoryName(entry.category)}
-                      </span>
-                    </td>
-                  )}
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <button
-                      onClick={() => toggleInstalled(entry.id, !entry.isInstalled)}
-                      className={`
-                        inline-flex items-center text-xs px-2 py-1 rounded-full
-                        ${entry.isInstalled
-                          ? darkMode 
-                            ? 'bg-green-900/50 text-green-300 hover:bg-green-900' 
-                            : 'bg-green-100 text-green-800 hover:bg-green-200'
-                          : darkMode 
-                            ? 'bg-red-900/50 text-red-300 hover:bg-red-900' 
-                            : 'bg-red-100 text-red-800 hover:bg-red-200'
-                        }
-                      `}
-                    >
-                      {entry.isInstalled ? (
-                        <>
-                          <Check size={14} className="mr-1" />
-                          Installed
-                        </>
-                      ) : (
-                        <>
-                          <X size={14} className="mr-1" />
-                          Not Installed
-                        </>
-                      )}
-                    </button>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <button
-                      onClick={() => handleEdit(entry)}
-                      className={`
-                        p-1 rounded-md mr-2
-                        ${darkMode 
-                          ? 'text-indigo-400 hover:bg-slate-700' 
-                          : 'text-indigo-600 hover:bg-slate-100'
-                        }
-                      `}
-                    >
-                      <Edit size={18} />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(entry.id)}
-                      className={`
-                        p-1 rounded-md
-                        ${darkMode 
-                          ? 'text-red-400 hover:bg-slate-700' 
-                          : 'text-red-600 hover:bg-slate-100'
-                        }
-                      `}
-                    >
-                      <Trash2 size={18} />
-                    </button>
-                  </td>
-                </tr>
-              ))
-            ) : (
-              <tr>
-                <td 
-                  colSpan={showCategory ? 5 : 4} 
-                  className="px-6 py-4 text-center text-sm"
-                >
-                  No entries found.
+                      {entry.name}
+                    </span>
+                  </div>
                 </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <span className={`
+                    text-sm
+                    ${darkMode ? 'text-slate-300' : 'text-slate-500'}
+                  `}>
+                    {entry.description}
+                  </span>
+                </td>
+                {showCategory && (
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`
+                      text-sm
+                      ${darkMode ? 'text-slate-300' : 'text-slate-500'}
+                    `}>
+                      {formatCategoryName(entry.category)}
+                    </span>
+                  </td>
+                )}
               </tr>
-            )}
+            ))}
           </tbody>
         </table>
       </div>
-      
-      {/* Edit modal */}
-      {editingEntry && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className={`
-            max-w-lg w-full mx-4 rounded-lg shadow-xl overflow-hidden
-            ${darkMode ? 'bg-slate-800' : 'bg-white'}
-          `}>
-            <div className={`
-              px-6 py-4 border-b
-              ${darkMode ? 'border-slate-700' : 'border-slate-200'}
-            `}>
-              <h2 className="text-xl font-bold">Edit Entry</h2>
-            </div>
-            <EntryForm
-              entry={editingEntry}
-              onCancel={handleEditCancel}
-              onSave={handleEditSave}
-            />
-          </div>
-        </div>
-      )}
     </div>
   );
 };

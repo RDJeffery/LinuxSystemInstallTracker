@@ -17,31 +17,65 @@ open_browser() {
     fi
 }
 
+# Function to print colored output
+print_status() {
+    echo -e "\033[1;34m==>\033[0m $1"
+}
+
+print_error() {
+    echo -e "\033[1;31mError:\033[0m $1"
+}
+
+print_success() {
+    echo -e "\033[1;32mSuccess:\033[0m $1"
+}
+
+# Get the directory where the script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Setup Python environment
+print_status "Setting up Python environment..."
+if ! "$SCRIPT_DIR/scripts/setup_and_run.sh"; then
+    print_error "Failed to setup Python environment."
+    exit 1
+fi
+print_success "Python environment setup complete."
+
+# Start the Python system info server in the background
+print_status "Starting Python system info server..."
+cd "$SCRIPT_DIR/scripts" && source venv/bin/activate && python get_system_info.py &
+PYTHON_PID=$!
+
+# Wait a moment for the Python server to start
+sleep 2
+
 # Start the backend server in the background
-echo "Starting backend server..."
-cd server && node index.js &
+print_status "Starting backend server..."
+cd "$SCRIPT_DIR/server" && npm install && node index.js &
 BACKEND_PID=$!
 
 # Wait a moment for the backend to start
 sleep 2
 
 # Start the frontend development server in the background
-echo "Starting frontend development server..."
-npm run dev &
+print_status "Starting frontend development server..."
+cd "$SCRIPT_DIR" && npm install && npm run dev &
 FRONTEND_PID=$!
 
 # Wait a moment for the frontend to start
 sleep 3
 
 # Open the browser
-echo "Opening browser..."
+print_status "Opening browser..."
 open_browser "http://localhost:5173"
 
 # Function to handle script termination
 cleanup() {
-    echo "Shutting down servers..."
-    kill $BACKEND_PID
-    kill $FRONTEND_PID
+    print_status "Shutting down servers..."
+    kill $PYTHON_PID 2>/dev/null
+    kill $BACKEND_PID 2>/dev/null
+    kill $FRONTEND_PID 2>/dev/null
+    print_success "Servers stopped."
     exit 0
 }
 
@@ -49,5 +83,5 @@ cleanup() {
 trap cleanup SIGINT SIGTERM
 
 # Keep the script running
-echo "Servers are running. Press Ctrl+C to stop."
+print_status "Servers are running. Press Ctrl+C to stop."
 wait 

@@ -6,11 +6,9 @@ get_command_output() {
     local output
     output=$($cmd 2>/dev/null)
     if [ $? -eq 0 ]; then
-        # Escape special characters and handle empty output
         if [ -z "$output" ]; then
             echo "Unknown"
         else
-            # Properly escape special characters for JSON
             echo "$output" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' -e 's/\n/\\n/g' -e 's/\r/\\r/g' -e 's/\t/\\t/g'
         fi
     else
@@ -25,7 +23,6 @@ get_theme_info() {
     local value
     value=$(gsettings get "$schema" "$key" 2>/dev/null)
     if [ $? -eq 0 ]; then
-        # Remove quotes and escape special characters
         value=$(echo "$value" | sed -e "s/^'//" -e "s/'$//" -e 's/\\/\\\\/g' -e 's/"/\\"/g' -e 's/\n/\\n/g' -e 's/\r/\\r/g' -e 's/\t/\\t/g')
         if [ -z "$value" ]; then
             echo "Unknown"
@@ -37,22 +34,31 @@ get_theme_info() {
     fi
 }
 
-# Function to get installed packages
-get_installed_packages() {
-    # Get explicitly installed packages
-    pacman -Qe 2>/dev/null | awk '{print $1}'
+# Function to safely convert array to JSON
+array_to_json() {
+    local input="$1"
+    if [ -z "$input" ]; then
+        echo "[]"
+    else
+        echo "$input" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' -e 's/\n/\\n/g' -e 's/\r/\\r/g' -e 's/\t/\\t/g' | jq -R -s -c 'split("\n")[:-1]'
+    fi
 }
 
-# Function to get package description
-get_package_description() {
-    local pkg="$1"
-    pacman -Qi "$pkg" 2>/dev/null | grep "Description" | cut -d: -f2 | sed 's/^[ \t]*//'
-}
-
-# Function to get package category
-get_package_category() {
-    local pkg="$1"
-    pacman -Qi "$pkg" 2>/dev/null | grep "Groups" | cut -d: -f2 | sed 's/^[ \t]*//'
+# Function to get packages from lists
+get_packages_from_lists() {
+    local category="$1"
+    local packages=""
+    
+    # Read from both main and foreign package lists
+    if [ -f "/etc/pacman.d/lists/pkglist.txt" ]; then
+        packages+=$(grep -f <(echo "$2" | tr ' ' '\n') "/etc/pacman.d/lists/pkglist.txt" 2>/dev/null)
+    fi
+    if [ -f "/etc/pacman.d/lists/foreignpkglist.txt" ]; then
+        packages+=$'\n'$(grep -f <(echo "$2" | tr ' ' '\n') "/etc/pacman.d/lists/foreignpkglist.txt" 2>/dev/null)
+    fi
+    
+    # Remove duplicates and empty lines
+    echo "$packages" | sort -u | grep -v '^$'
 }
 
 # Get system information
@@ -79,7 +85,7 @@ GRAPHICS_DRIVER=$(get_command_output "lspci -k | grep -A 2 -E '(VGA|3D)' | grep 
 # Get audio driver
 AUDIO_DRIVER=$(get_command_output "systemctl status pipewire.service 2>/dev/null | grep 'Active:' | awk '{print $2}'")
 
-# Get installed packages and categorize them
+# Define package categories
 declare -A categories
 categories["CORE_OS_UTILITIES"]="waybar udiskie pavucontrol wttr hyprland hyprlock hypridle hyprpicker hyprcursor nwg-look yay flatpak pcmanfm lf engrampa xdg-desktop-portal-hyprland"
 categories["EXTRA_UTILITIES"]="btop neofetch bottles wine helvum wineasio latencyflex"
@@ -87,6 +93,14 @@ categories["WEB_BROWSERS"]="brave qutebrowser"
 categories["TEXT_EDITORS"]="cursor neovim"
 categories["LAUNCHERS"]="steam lutris"
 categories["APPLICATIONS"]="spotify vesktop davinci-resolve touchdesigner"
+
+# Get installed packages for each category
+CORE_OS_UTILITIES=$(get_packages_from_lists "CORE_OS_UTILITIES" "${categories[CORE_OS_UTILITIES]}")
+EXTRA_UTILITIES=$(get_packages_from_lists "EXTRA_UTILITIES" "${categories[EXTRA_UTILITIES]}")
+WEB_BROWSERS=$(get_packages_from_lists "WEB_BROWSERS" "${categories[WEB_BROWSERS]}")
+TEXT_EDITORS=$(get_packages_from_lists "TEXT_EDITORS" "${categories[TEXT_EDITORS]}")
+LAUNCHERS=$(get_packages_from_lists "LAUNCHERS" "${categories[LAUNCHERS]}")
+APPLICATIONS=$(get_packages_from_lists "APPLICATIONS" "${categories[APPLICATIONS]}")
 
 # Get installed fonts
 INSTALLED_FONTS=$(get_command_output "fc-list : family | sort | uniq")
@@ -100,101 +114,38 @@ INSTALLED_ICON_THEMES=$(get_command_output "ls /usr/share/icons/ 2>/dev/null")
 # Get installed cursor themes
 INSTALLED_CURSOR_THEMES=$(get_command_output "ls /usr/share/icons/ 2>/dev/null | grep -i cursor")
 
-# Function to safely convert array to JSON
-array_to_json() {
-    local input="$1"
-    if [ -z "$input" ]; then
-        echo "[]"
-    else
-        # Properly escape and format the array
-        echo "$input" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' -e 's/\n/\\n/g' -e 's/\r/\\r/g' -e 's/\t/\\t/g' | jq -R -s -c 'split("\n")[:-1]'
-    fi
-}
-
-# Get system info using neofetch
-get_neofetch_info() {
-    if command -v neofetch >/dev/null 2>&1; then
-        neofetch --json | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' -e 's/\n/\\n/g' -e 's/\r/\\r/g' -e 's/\t/\\t/g'
-    else
-        echo "{}"
-    fi
-}
-
-# Get Hyprland info using hyprctl
-get_hyprland_info() {
-    if command -v hyprctl >/dev/null 2>&1; then
-        echo "{\"version\": \"$(hyprctl version | grep -oP 'tag: \K.*' | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g')\", \"monitors\": \"$(hyprctl monitors | grep -oP 'Monitor \K.*' | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g')\"}"
-    else
-        echo "{}"
-    fi
-}
-
-# Get audio info using pactl or wpctl
-get_audio_info() {
-    if command -v pactl >/dev/null 2>&1; then
-        echo "{\"audio\": \"$(pactl info | grep -oP 'Server Name: \K.*' | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g')\"}"
-    elif command -v wpctl >/dev/null 2>&1; then
-        echo "{\"audio\": \"$(wpctl status | grep -oP 'Audio: \K.*' | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g')\"}"
-    else
-        echo "{}"
-    fi
-}
-
-# Get login manager info using systemctl
-get_login_manager_info() {
-    if systemctl status ly >/dev/null 2>&1; then
-        echo "{\"login_manager\": \"Ly\"}"
-    else
-        echo "{\"login_manager\": \"Unknown\"}"
-    fi
-}
-
-# Get NVIDIA GPU info using nvidia-smi
-get_nvidia_info() {
-    if command -v nvidia-smi >/dev/null 2>&1; then
-        echo "{\"gpu\": \"$(nvidia-smi --query-gpu=name,driver_version --format=csv,noheader)\"}"
-    else
-        echo "{}"
-    fi
-}
-
-# Create JSON output
+# Create the final JSON output
 cat << EOF
 {
-    "system": {
-        "hostname": "$HOSTNAME",
-        "baseInstall": "$BASE_INSTALL",
-        "kernel": "$KERNEL",
-        "bootloader": "$BOOTLOADER",
-        "loginManager": "$LOGIN_MANAGER",
-        "font": "$FONT",
-        "theme": "$THEME",
-        "iconTheme": "$ICON_THEME",
-        "cursorTheme": "$CURSOR_THEME"
-    },
-    "users": $(array_to_json "$USERS"),
-    "drivers": {
-        "graphics": "$GRAPHICS_DRIVER",
-        "audio": "$AUDIO_DRIVER"
-    },
-    "packages": {
-        "coreOsUtilities": $(array_to_json "${categories["CORE_OS_UTILITIES"]}"),
-        "extraUtilities": $(array_to_json "${categories["EXTRA_UTILITIES"]}"),
-        "webBrowsers": $(array_to_json "${categories["WEB_BROWSERS"]}"),
-        "textEditors": $(array_to_json "${categories["TEXT_EDITORS"]}"),
-        "launchers": $(array_to_json "${categories["LAUNCHERS"]}"),
-        "applications": $(array_to_json "${categories["APPLICATIONS"]}")
-    },
-    "themes": {
-        "fonts": $(array_to_json "$INSTALLED_FONTS"),
-        "themes": $(array_to_json "$INSTALLED_THEMES"),
-        "iconThemes": $(array_to_json "$INSTALLED_ICON_THEMES"),
-        "cursorThemes": $(array_to_json "$INSTALLED_CURSOR_THEMES")
-    },
-    "system_info": $(get_neofetch_info),
-    "hyprland_info": $(get_hyprland_info),
-    "audio_info": $(get_audio_info),
-    "login_manager_info": $(get_login_manager_info),
-    "nvidia_info": $(get_nvidia_info)
+  "system": {
+    "hostname": "$HOSTNAME",
+    "baseInstall": "$BASE_INSTALL",
+    "kernel": "$KERNEL",
+    "bootloader": "$BOOTLOADER",
+    "loginManager": "$LOGIN_MANAGER",
+    "font": "$FONT",
+    "theme": "$THEME",
+    "iconTheme": "$ICON_THEME",
+    "cursorTheme": "$CURSOR_THEME"
+  },
+  "users": $(array_to_json "$USERS"),
+  "drivers": {
+    "graphics": "$GRAPHICS_DRIVER",
+    "audio": "$AUDIO_DRIVER"
+  },
+  "packages": {
+    "coreOsUtilities": $(array_to_json "$CORE_OS_UTILITIES"),
+    "extraUtilities": $(array_to_json "$EXTRA_UTILITIES"),
+    "webBrowsers": $(array_to_json "$WEB_BROWSERS"),
+    "textEditors": $(array_to_json "$TEXT_EDITORS"),
+    "launchers": $(array_to_json "$LAUNCHERS"),
+    "applications": $(array_to_json "$APPLICATIONS")
+  },
+  "themes": {
+    "fonts": $(array_to_json "$INSTALLED_FONTS"),
+    "themes": $(array_to_json "$INSTALLED_THEMES"),
+    "iconThemes": $(array_to_json "$INSTALLED_ICON_THEMES"),
+    "cursorThemes": $(array_to_json "$INSTALLED_CURSOR_THEMES")
+  }
 }
 EOF

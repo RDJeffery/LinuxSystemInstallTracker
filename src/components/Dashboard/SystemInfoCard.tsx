@@ -10,27 +10,27 @@ const SystemInfoCard: React.FC = () => {
       label: 'System', 
       icon: <Cpu size={20} />, 
       items: [
-        { key: 'Hostname', value: systemInfo.hostname },
-        { key: 'Base Install', value: systemInfo.baseInstall },
-        { key: 'Kernel', value: systemInfo.kernel },
-        { key: 'Bootloader', value: systemInfo.bootloader },
+        { key: 'Hostname', value: systemInfo.system.hostname },
+        { key: 'Base Install', value: systemInfo.system.baseInstall },
+        { key: 'Kernel', value: systemInfo.system.kernel },
+        { key: 'Bootloader', value: systemInfo.system.bootloader },
       ]
     },
     { 
       label: 'Display', 
       icon: <MonitorSmartphone size={20} />, 
       items: [
-        { key: 'Login Manager', value: systemInfo.loginManager },
+        { key: 'Login Manager', value: systemInfo.system.loginManager },
       ]
     },
     { 
       label: 'Appearance', 
       icon: <Palette size={20} />, 
       items: [
-        { key: 'Font', value: systemInfo.font },
-        { key: 'Theme', value: systemInfo.theme },
-        { key: 'Icon Theme', value: systemInfo.iconTheme },
-        { key: 'Cursor Theme', value: systemInfo.cursorTheme },
+        { key: 'Font', value: systemInfo.system.font },
+        { key: 'Theme', value: systemInfo.system.theme },
+        { key: 'Icon Theme', value: systemInfo.system.iconTheme },
+        { key: 'Cursor Theme', value: systemInfo.system.cursorTheme },
       ]
     },
   ];
